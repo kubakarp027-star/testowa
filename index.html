@@ -1,0 +1,2046 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nauka słówek z pliku Excel - Aplikacja Online</title>
+    <!-- SheetJS do parsowania i generowania plików Excel -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <!-- Ikony FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            /* Kolory dla motywu jasnego */
+            --bg-color: #f8f9fa;
+            --text-color: #212529;
+            --card-bg: #ffffff;
+            --border-color: #dee2e6;
+            --primary-color: #4361ee;
+            --secondary-color: #7209b7;
+            --accent-color: #f72585;
+            --warning-color: #f59e0b;
+            --success-color: #4cc9f0;
+            --known-color: #4ade80;
+            --unknown-color: #f87171;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            --hover-bg: #f1f3f4;
+            --modal-overlay: rgba(0, 0, 0, 0.5);
+            --file-item-bg: #f8f9fa;
+        }
+
+        [data-theme="dark"] {
+            /* Kolory dla motywu ciemnego */
+            --bg-color: #121212;
+            --text-color: #e9ecef;
+            --card-bg: #1e1e1e;
+            --border-color: #343a40;
+            --primary-color: #4895ef;
+            --secondary-color: #b5179e;
+            --accent-color: #f72585;
+            --warning-color: #d97706;
+            --success-color: #4cc9f0;
+            --known-color: #16a34a;
+            --unknown-color: #dc2626;
+            --shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            --hover-bg: #2d2d2d;
+            --modal-overlay: rgba(0, 0, 0, 0.7);
+            --file-item-bg: #2d2d2d;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            color: var(--primary-color);
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: var(--text-color);
+            opacity: 0.8;
+        }
+
+        .main-layout {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+        }
+
+        /* Panel boczny z menedżerem plików */
+        .file-manager {
+            background-color: var(--card-bg);
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            padding: 20px;
+            height: fit-content;
+            position: sticky;
+            top: 20px;
+        }
+
+        .file-manager h2 {
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.3rem;
+        }
+
+        .file-manager-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .file-manager-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .file-search {
+            flex-grow: 1;
+            padding: 10px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            font-size: 0.9rem;
+        }
+
+        .file-search:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .file-sort {
+            padding: 8px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            cursor: pointer;
+        }
+
+        .file-sort:hover {
+            border-color: var(--primary-color);
+        }
+
+        .files-list {
+            max-height: 500px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
+
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: background-color 0.2s;
+            background-color: var(--file-item-bg);
+        }
+
+        .file-item:hover {
+            background-color: var(--hover-bg);
+        }
+
+        .file-item.selected {
+            background-color: rgba(67, 97, 238, 0.1);
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .file-info {
+            flex-grow: 1;
+            overflow: hidden;
+        }
+
+        .file-name {
+            font-weight: 600;
+            margin-bottom: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .file-date {
+            font-size: 0.8rem;
+            color: var(--text-color);
+            opacity: 0.7;
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 5px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .file-item:hover .file-actions {
+            opacity: 1;
+        }
+
+        .file-btn {
+            background: none;
+            border: none;
+            color: var(--primary-color);
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+
+        .file-btn:hover {
+            color: var(--accent-color);
+            background-color: var(--hover-bg);
+        }
+
+        .file-btn.delete:hover {
+            color: var(--accent-color);
+        }
+
+        .empty-files {
+            text-align: center;
+            padding: 30px 20px;
+            color: var(--text-color);
+            opacity: 0.7;
+        }
+
+        .empty-files i {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            color: var(--primary-color);
+        }
+
+        .file-stats {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.9rem;
+            color: var(--text-color);
+            opacity: 0.8;
+        }
+
+        /* Panel główny */
+        .main-panel {
+            background-color: var(--card-bg);
+            border-radius: 10px;
+            box-shadow: var(--shadow);
+            padding: 20px;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+
+        .file-input-container {
+            flex-grow: 1;
+            max-width: 400px;
+        }
+
+        .file-input-label {
+            display: block;
+            padding: 12px 20px;
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+
+        .file-input-label:hover {
+            background-color: var(--secondary-color);
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .theme-toggle {
+            background: none;
+            border: 2px solid var(--primary-color);
+            color: var(--primary-color);
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: all 0.2s;
+        }
+
+        .theme-toggle:hover {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .bulk-controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--secondary-color);
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--primary-color);
+            transform: translateY(-2px);
+        }
+
+        .btn-accent {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        .btn-accent:hover {
+            background-color: #d9048c;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background-color: var(--known-color);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #22c55e;
+            transform: translateY(-2px);
+        }
+
+        .btn-warning {
+            background-color: var(--warning-color);
+            color: white;
+        }
+
+        .btn-warning:hover {
+            background-color: #ea580c;
+            transform: translateY(-2px);
+        }
+
+        .export-container {
+            text-align: center;
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            margin-top: 20px;
+            border-radius: 10px;
+            background-color: var(--card-bg);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 16px 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        th:first-child {
+            border-radius: 10px 0 0 0;
+            width: 60px;
+        }
+
+        th:nth-child(4) {
+            border-radius: 0 10px 0 0;
+        }
+
+        td {
+            padding: 16px 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .row-number {
+            font-weight: bold;
+            color: var(--primary-color);
+            text-align: center;
+            width: 60px;
+        }
+
+        .word-cell {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .word-text {
+            flex-grow: 1;
+        }
+
+        .word-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .word-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.1rem;
+            color: var(--primary-color);
+            transition: color 0.2s;
+            padding: 5px;
+            border-radius: 4px;
+        }
+
+        .word-btn:hover {
+            color: var(--accent-color);
+            background-color: var(--hover-bg);
+        }
+
+        .hidden {
+            color: transparent;
+            background-color: var(--hover-bg);
+            border-radius: 4px;
+            user-select: none;
+        }
+
+        .hidden .word-text {
+            color: transparent;
+        }
+
+        .known-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid var(--unknown-color);
+            background-color: transparent;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            margin: 0 auto;
+        }
+
+        .known-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .known-btn.known {
+            background-color: var(--known-color);
+            border-color: var(--known-color);
+        }
+
+        .known-btn.known::after {
+            content: "✓";
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .known-cell {
+            text-align: center;
+            width: 100px;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            background-color: var(--card-bg);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow);
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--text-color);
+            opacity: 0.8;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-color);
+            opacity: 0.7;
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            color: var(--primary-color);
+        }
+
+        .instructions {
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 30px;
+            box-shadow: var(--shadow);
+        }
+
+        .instructions h3 {
+            margin-bottom: 15px;
+            color: var(--primary-color);
+        }
+
+        .instructions ul {
+            padding-left: 20px;
+            margin-bottom: 15px;
+        }
+
+        .instructions li {
+            margin-bottom: 8px;
+        }
+
+        .instructions .file-structure {
+            background-color: var(--bg-color);
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            margin-top: 10px;
+            border-left: 4px solid var(--primary-color);
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+            color: var(--text-color);
+            opacity: 0.7;
+            font-size: 0.9rem;
+        }
+
+        /* Modal ostrzeżenia przed zamknięciem */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--modal-overlay);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background-color: var(--card-bg);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            width: 90%;
+            max-width: 500px;
+            overflow: hidden;
+            transform: translateY(-20px);
+            transition: transform 0.3s;
+        }
+
+        .modal-overlay.active .modal {
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            background-color: var(--warning-color);
+            color: white;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .modal-header i {
+            font-size: 1.8rem;
+        }
+
+        .modal-header h2 {
+            font-size: 1.5rem;
+            margin: 0;
+        }
+
+        .modal-body {
+            padding: 25px;
+        }
+
+        .modal-message {
+            font-size: 1.1rem;
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+        }
+
+        .modal-btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 140px;
+            justify-content: center;
+        }
+
+        .modal-btn-export {
+            background-color: var(--known-color);
+            color: white;
+        }
+
+        .modal-btn-export:hover {
+            background-color: #22c55e;
+            transform: translateY(-2px);
+        }
+
+        .modal-btn-cancel {
+            background-color: var(--secondary-color);
+            color: white;
+        }
+
+        .modal-btn-cancel:hover {
+            background-color: var(--primary-color);
+            transform: translateY(-2px);
+        }
+
+        .modal-btn-leave {
+            background-color: var(--accent-color);
+            color: white;
+        }
+
+        .modal-btn-leave:hover {
+            background-color: #d9048c;
+            transform: translateY(-2px);
+        }
+
+        /* Modal do zmiany nazwy */
+        .rename-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            font-size: 1rem;
+            margin-bottom: 20px;
+        }
+
+        .rename-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        /* Przycisk pobierania */
+        .download-btn {
+            background-color: var(--success-color);
+            color: white;
+            margin-left: 10px;
+        }
+
+        .download-btn:hover {
+            background-color: #3aa8d0;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: var(--primary-color);
+        }
+
+        .loading i {
+            font-size: 2rem;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Responsywność */
+        @media (max-width: 1024px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+            
+            .file-manager {
+                position: static;
+                margin-bottom: 20px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .file-input-container {
+                width: 100%;
+            }
+            
+            th, td {
+                padding: 12px 8px;
+                font-size: 0.9rem;
+            }
+            
+            .word-controls {
+                flex-direction: column;
+                gap: 5px;
+            }
+            
+            .bulk-controls {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .stats {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .stat-value {
+                font-size: 1.5rem;
+            }
+            
+            .known-btn {
+                width: 35px;
+                height: 35px;
+            }
+            
+            .modal-actions {
+                flex-direction: column;
+            }
+            
+            .modal-btn {
+                width: 100%;
+            }
+            
+            .file-manager-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .file-manager-controls {
+                flex-direction: column;
+            }
+            
+            .file-sort {
+                width: 100%;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 15px;
+            }
+            
+            h1 {
+                font-size: 1.7rem;
+            }
+            
+            .subtitle {
+                font-size: 1rem;
+            }
+            
+            th:nth-child(2), th:nth-child(3), th:nth-child(4) {
+                font-size: 0.8rem;
+            }
+            
+            .modal-body {
+                padding: 20px;
+            }
+            
+            .modal-message {
+                font-size: 1rem;
+            }
+            
+            .file-actions {
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Modal ostrzeżenia przed zamknięciem -->
+    <div class="modal-overlay" id="closeWarningModal">
+        <div class="modal">
+            <div class="modal-header">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h2>Uwaga! Masz niezapisane zmiany</h2>
+            </div>
+            <div class="modal-body">
+                <p class="modal-message">
+                    Za chwilę zamkniesz lub odświeżysz stronę. Wszystkie Twoje postępy nauki (oznaczenia "Umie") zostaną utracone, jeśli teraz nie zapiszesz ich do pliku Excel.
+                </p>
+                <p class="modal-message">
+                    <strong>Zalecenie:</strong> Zapisz plik Excel z postępem nauki przed opuszczeniem strony.
+                </p>
+                <div class="modal-actions">
+                    <button class="modal-btn modal-btn-export" id="modalExportBtn">
+                        <i class="fas fa-save"></i> Zapisz i wyjdź
+                    </button>
+                    <button class="modal-btn modal-btn-cancel" id="modalCancelBtn">
+                        <i class="fas fa-times"></i> Anuluj, zostań na stronie
+                    </button>
+                    <button class="modal-btn modal-btn-leave" id="modalLeaveBtn">
+                        <i class="fas fa-door-open"></i> Wyjdź bez zapisu
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal do zmiany nazwy pliku -->
+    <div class="modal-overlay" id="renameModal">
+        <div class="modal">
+            <div class="modal-header" style="background-color: var(--primary-color);">
+                <i class="fas fa-edit"></i>
+                <h2>Zmień nazwę pliku</h2>
+            </div>
+            <div class="modal-body">
+                <input type="text" class="rename-input" id="renameInput" placeholder="Nowa nazwa pliku">
+                <div class="modal-actions">
+                    <button class="modal-btn modal-btn-cancel" id="renameCancelBtn">
+                        <i class="fas fa-times"></i> Anuluj
+                    </button>
+                    <button class="modal-btn modal-btn-export" id="renameConfirmBtn">
+                        <i class="fas fa-check"></i> Zmień nazwę
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-language"></i> Nauka Słówek</h1>
+            <p class="subtitle">Wczytaj plik Excel z słówkami polsko-angielskimi i śledź swoje postępy</p>
+        </header>
+
+        <div class="main-layout">
+            <!-- Panel boczny z menedżerem plików -->
+            <div class="file-manager">
+                <h2><i class="fas fa-folder-open"></i> Wspólne pliki</h2>
+                
+                <div class="file-manager-header">
+                    <input type="text" class="file-search" id="fileSearch" placeholder="Szukaj pliku...">
+                    <div class="file-manager-controls">
+                        <select class="file-sort" id="fileSort">
+                            <option value="dateDesc">Data (najnowsze)</option>
+                            <option value="dateAsc">Data (najstarsze)</option>
+                            <option value="nameAsc">Nazwa A-Z</option>
+                            <option value="nameDesc">Nazwa Z-A</option>
+                        </select>
+                        <button class="file-btn" id="refreshFiles" title="Odśwież listę">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="files-list" id="filesList">
+                    <div class="empty-files">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>Brak plików na serwerze</p>
+                        <p style="font-size: 0.9rem;">Wgraj pierwszy plik</p>
+                    </div>
+                </div>
+
+                <div class="file-stats" id="fileStats">
+                    <span id="fileCount">0 plików</span> | 
+                    <span id="totalSize">0 B</span>
+                </div>
+            </div>
+
+            <!-- Panel główny z nauką -->
+            <div class="main-panel">
+                <div class="controls">
+                    <div class="file-input-container">
+                        <label for="fileInput" class="file-input-label">
+                            <i class="fas fa-file-excel"></i> Wybierz plik Excel z komputera
+                        </label>
+                        <input type="file" id="fileInput" accept=".xlsx, .xls">
+                    </div>
+                    <button id="uploadBtn" class="btn btn-primary">
+                        <i class="fas fa-upload"></i> Wgraj na serwer
+                    </button>
+                    <button id="themeToggle" class="theme-toggle" aria-label="Przełącz motyw">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                </div>
+
+                <div class="stats" id="statsContainer" style="display: none;">
+                    <div class="stat-item">
+                        <div class="stat-value" id="totalWords">0</div>
+                        <div class="stat-label">Wszystkie słówka</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="knownWords">0</div>
+                        <div class="stat-label">Znane słówka</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="unknownWords">0</div>
+                        <div class="stat-label">Nieznane słówka</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="progressPercent">0%</div>
+                        <div class="stat-label">Postęp</div>
+                    </div>
+                </div>
+
+                <div class="bulk-controls">
+                    <button id="hidePolishBtn" class="btn btn-primary">
+                        <i class="fas fa-eye-slash"></i> Ukryj polskie
+                    </button>
+                    <button id="showPolishBtn" class="btn btn-secondary">
+                        <i class="fas fa-eye"></i> Pokaż polskie
+                    </button>
+                    <button id="hideEnglishBtn" class="btn btn-primary">
+                        <i class="fas fa-eye-slash"></i> Ukryj angielskie
+                    </button>
+                    <button id="showEnglishBtn" class="btn btn-secondary">
+                        <i class="fas fa-eye"></i> Pokaż angielskie
+                    </button>
+                    <button id="markAllKnownBtn" class="btn btn-success">
+                        <i class="fas fa-check-circle"></i> Oznacz wszystkie jako znane
+                    </button>
+                    <button id="markAllUnknownBtn" class="btn btn-accent">
+                        <i class="fas fa-times-circle"></i> Oznacz wszystkie jako nieznane
+                    </button>
+                </div>
+
+                <div class="table-container">
+                    <div id="tableWrapper">
+                        <!-- Tabela zostanie wygenerowana dynamicznie -->
+                        <div class="empty-state" id="emptyState">
+                            <i class="fas fa-file-excel"></i>
+                            <h3>Brak danych do wyświetlenia</h3>
+                            <p>Wybierz plik Excel, aby załadować słówka do nauki.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="export-container">
+                    <button id="saveBtn" class="btn btn-success" style="display: none;">
+                        <i class="fas fa-save"></i> Zapisz na serwerze
+                    </button>
+                    <button id="downloadBtn" class="btn btn-primary download-btn" style="display: none;">
+                        <i class="fas fa-download"></i> Pobierz na dysk
+                    </button>
+                    <div id="unsavedWarning" style="margin-top: 10px; color: var(--warning-color); font-weight: 600; display: none;">
+                        <i class="fas fa-exclamation-circle"></i> Masz niezapisane zmiany! Zapisz plik na serwerze.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h3><i class="fas fa-info-circle"></i> Instrukcje użytkowania</h3>
+            <ul>
+                <li><strong>Podstawowy format pliku:</strong> Kolumny: <strong>J.polski</strong> i <strong>J.angielski</strong></li>
+                <li><strong>Rozszerzony format (do zapisu):</strong> Kolumny: <strong>J.polski</strong>, <strong>J.angielski</strong>, <strong>Umie / Nie umie</strong></li>
+                <li>Kliknij okrągły przycisk w kolumnie "Umie", aby oznaczyć słówko jako znane/nieznane</li>
+                <li>Użyj przycisków powyżej, aby masowo ukrywać/odsłaniać kolumny lub oznaczać słówka</li>
+                <li><strong>Nowa funkcja - Wspólne pliki:</strong> Wszystkie pliki są przechowywane na serwerze i widoczne dla wszystkich użytkowników</li>
+                <li>Możesz zmieniać nazwy plików, usuwać je i pobierać na dysk</li>
+                <li><strong>Ostrzeżenie:</strong> Strona pokaże alert przed zamknięciem/odświeżeniem, jeśli masz niezapisane zmiany</li>
+                <li>Możesz przełączać między motywem jasnym i ciemnym</li>
+            </ul>
+            <div class="file-structure">
+                <strong>Struktura pliku Excel (zapis):</strong><br>
+                | A: J.polski | B: J.angielski | C: Umie / Nie umie |<br>
+                |-------------|----------------|---------------------|<br>
+                | dom         | house          | Umie                |<br>
+                | kot         | cat            | Nie umie            |<br>
+                | pies        | dog            | Umie                |
+            </div>
+        </div>
+
+        <footer>
+            <p>Strona do nauki słówek z pliku Excel | Wykorzystuje bibliotekę SheetJS | Wspólne pliki na serwerze</p>
+            <p><i class="fas fa-shield-alt"></i> Wszystkie pliki są przechowywane na serwerze</p>
+            <p><i class="fas fa-users"></i> Każdy użytkownik widzi te same pliki</p>
+        </footer>
+    </div>
+
+    <script>
+        // Zmienne globalne
+        let wordsData = [];
+        let currentTheme = 'light';
+        let hasUnsavedChanges = false;
+        let isSaving = false;
+        let currentFileName = '';
+        let currentFileId = null;
+        
+        // Elementy DOM
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const themeToggle = document.getElementById('themeToggle');
+        const tableWrapper = document.getElementById('tableWrapper');
+        const emptyState = document.getElementById('emptyState');
+        const saveBtn = document.getElementById('saveBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const unsavedWarning = document.getElementById('unsavedWarning');
+        const statsContainer = document.getElementById('statsContainer');
+        const totalWordsEl = document.getElementById('totalWords');
+        const knownWordsEl = document.getElementById('knownWords');
+        const unknownWordsEl = document.getElementById('unknownWords');
+        const progressPercentEl = document.getElementById('progressPercent');
+        
+        // Elementy menedżera plików
+        const filesList = document.getElementById('filesList');
+        const fileSearch = document.getElementById('fileSearch');
+        const fileSort = document.getElementById('fileSort');
+        const refreshFilesBtn = document.getElementById('refreshFiles');
+        const fileCountEl = document.getElementById('fileCount');
+        const totalSizeEl = document.getElementById('totalSize');
+        
+        // Elementy modali
+        const closeWarningModal = document.getElementById('closeWarningModal');
+        const modalSaveBtn = document.getElementById('modalExportBtn');
+        const modalCancelBtn = document.getElementById('modalCancelBtn');
+        const modalLeaveBtn = document.getElementById('modalLeaveBtn');
+        
+        const renameModal = document.getElementById('renameModal');
+        const renameInput = document.getElementById('renameInput');
+        const renameCancelBtn = document.getElementById('renameCancelBtn');
+        const renameConfirmBtn = document.getElementById('renameConfirmBtn');
+        
+        // Przyciski do masowego ukrywania/odsłaniania i oznaczeń
+        const hidePolishBtn = document.getElementById('hidePolishBtn');
+        const showPolishBtn = document.getElementById('showPolishBtn');
+        const hideEnglishBtn = document.getElementById('hideEnglishBtn');
+        const showEnglishBtn = document.getElementById('showEnglishBtn');
+        const markAllKnownBtn = document.getElementById('markAllKnownBtn');
+        const markAllUnknownBtn = document.getElementById('markAllUnknownBtn');
+        
+        // Zmienna do przechowywania oryginalnych danych (do porównania zmian)
+        let originalWordsData = [];
+        
+        // Funkcja do pobierania listy plików z serwera
+        async function loadFilesFromServer() {
+            try {
+                const response = await fetch('list_files.php');
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayFilesList(result.files);
+                    updateFileStats(result.files);
+                } else {
+                    console.error('Błąd ładowania plików:', result.error);
+                }
+            } catch (error) {
+                console.error('Błąd połączenia z serwerem:', error);
+            }
+        }
+        
+        // Wyświetlanie listy plików
+        function displayFilesList(files) {
+            if (!filesList) return;
+            
+            // Filtrowanie i sortowanie
+            let filteredFiles = filterFiles(files, fileSearch ? fileSearch.value : '');
+            filteredFiles = sortFiles(filteredFiles, fileSort ? fileSort.value : 'dateDesc');
+            
+            if (filteredFiles.length === 0) {
+                filesList.innerHTML = `
+                    <div class="empty-files">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>Brak plików na serwerze</p>
+                        <p style="font-size: 0.9rem;">Wgraj pierwszy plik</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            filteredFiles.forEach(file => {
+                const date = new Date(file.modified);
+                const formattedDate = date.toLocaleDateString('pl-PL') + ' ' + date.toLocaleTimeString('pl-PL');
+                const size = formatFileSize(file.size);
+                const selectedClass = (file.name === currentFileName) ? 'selected' : '';
+                
+                html += `
+                    <div class="file-item ${selectedClass}" data-file-name="${file.name}">
+                        <div class="file-info">
+                            <div class="file-name" title="${file.name}">
+                                <i class="fas fa-file-excel" style="margin-right: 8px; color: var(--primary-color);"></i>
+                                ${file.name}
+                            </div>
+                            <div class="file-date">
+                                ${formattedDate} • ${size}
+                            </div>
+                        </div>
+                        <div class="file-actions">
+                            <button class="file-btn load" title="Wczytaj plik">
+                                <i class="fas fa-folder-open"></i>
+                            </button>
+                            <button class="file-btn rename" title="Zmień nazwę">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="file-btn download" title="Pobierz plik">
+                                <i class="fas fa-download"></i>
+                            </button>
+                            <button class="file-btn delete" title="Usuń plik">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            filesList.innerHTML = html;
+            
+            // Dodanie obsługi zdarzeń dla przycisków
+            document.querySelectorAll('.file-item .load').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const fileItem = e.target.closest('.file-item');
+                    const fileName = fileItem.dataset.fileName;
+                    loadFileFromServer(fileName);
+                });
+            });
+            
+            document.querySelectorAll('.file-item .rename').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const fileItem = e.target.closest('.file-item');
+                    const fileName = fileItem.dataset.fileName;
+                    showRenameModal(fileName);
+                });
+            });
+            
+            document.querySelectorAll('.file-item .download').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const fileItem = e.target.closest('.file-item');
+                    const fileName = fileItem.dataset.fileName;
+                    downloadFile(fileName);
+                });
+            });
+            
+            document.querySelectorAll('.file-item .delete').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const fileItem = e.target.closest('.file-item');
+                    const fileName = fileItem.dataset.fileName;
+                    
+                    if (confirm(`Czy na pewno chcesz usunąć plik "${fileName}"?`)) {
+                        deleteFile(fileName);
+                    }
+                });
+            });
+            
+            // Dodanie obsługi kliknięcia na cały wiersz (wczytanie pliku)
+            document.querySelectorAll('.file-item').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    // Ignoruj kliknięcia na przyciski
+                    if (e.target.closest('.file-btn')) return;
+                    
+                    const fileName = item.dataset.fileName;
+                    loadFileFromServer(fileName);
+                });
+            });
+        }
+        
+        // Pokaż modal zmiany nazwy
+        function showRenameModal(oldName) {
+            renameInput.value = oldName;
+            renameModal.classList.add('active');
+            
+            // Zapisz starą nazwę w atrybucie data
+            renameModal.dataset.oldName = oldName;
+        }
+        
+        // Zmiana nazwy pliku
+        async function renameFile(oldName, newName) {
+            if (!newName || newName === oldName) {
+                renameModal.classList.remove('active');
+                return;
+            }
+            
+            // Dodaj rozszerzenie jeśli nie ma
+            if (!newName.toLowerCase().endsWith('.xlsx') && !newName.toLowerCase().endsWith('.xls')) {
+                newName += '.xlsx';
+            }
+            
+            try {
+                const formData = new FormData();
+                formData.append('old_name', oldName);
+                formData.append('new_name', newName);
+                
+                const response = await fetch('rename_file.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Nazwa pliku została zmieniona');
+                    
+                    // Jeśli to był aktualnie otwarty plik, zaktualizuj nazwę
+                    if (currentFileName === oldName) {
+                        currentFileName = newName;
+                    }
+                    
+                    // Odśwież listę plików
+                    loadFilesFromServer();
+                } else {
+                    alert('Błąd podczas zmiany nazwy: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Błąd:', error);
+                alert('Wystąpił błąd połączenia z serwerem');
+            }
+            
+            renameModal.classList.remove('active');
+        }
+        
+        // Usuwanie pliku
+        async function deleteFile(fileName) {
+            try {
+                const formData = new FormData();
+                formData.append('filename', fileName);
+                
+                const response = await fetch('delete_file.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Plik został usunięty');
+                    
+                    // Jeśli to był aktualnie otwarty plik, wyczyść dane
+                    if (currentFileName === fileName) {
+                        wordsData = [];
+                        originalWordsData = [];
+                        currentFileName = '';
+                        displayWordsTable();
+                    }
+                    
+                    // Odśwież listę plików
+                    loadFilesFromServer();
+                } else {
+                    alert('Błąd podczas usuwania pliku: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Błąd:', error);
+                alert('Wystąpił błąd połączenia z serwerem');
+            }
+        }
+        
+        // Pobieranie pliku
+        function downloadFile(fileName) {
+            window.location.href = `download.php?file=${encodeURIComponent(fileName)}`;
+        }
+        
+        // Filtrowanie plików
+        function filterFiles(files, searchTerm) {
+            if (!searchTerm) return files;
+            
+            searchTerm = searchTerm.toLowerCase();
+            return files.filter(file => 
+                file.name.toLowerCase().includes(searchTerm)
+            );
+        }
+        
+        // Sortowanie plików
+        function sortFiles(files, sortBy) {
+            const sorted = [...files];
+            
+            switch (sortBy) {
+                case 'dateDesc':
+                    sorted.sort((a, b) => new Date(b.modified) - new Date(a.modified));
+                    break;
+                case 'dateAsc':
+                    sorted.sort((a, b) => new Date(a.modified) - new Date(b.modified));
+                    break;
+                case 'nameAsc':
+                    sorted.sort((a, b) => a.name.localeCompare(b.name));
+                    break;
+                case 'nameDesc':
+                    sorted.sort((a, b) => b.name.localeCompare(a.name));
+                    break;
+                default:
+                    sorted.sort((a, b) => new Date(b.modified) - new Date(a.modified));
+            }
+            
+            return sorted;
+        }
+        
+        // Formatowanie rozmiaru pliku
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 B';
+            
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        // Aktualizacja statystyk plików
+        function updateFileStats(files) {
+            const count = files.length;
+            const totalSize = files.reduce((sum, file) => sum + file.size, 0);
+            
+            fileCountEl.textContent = `${count} ${count === 1 ? 'plik' : (count < 5 ? 'pliki' : 'plików')}`;
+            totalSizeEl.textContent = formatFileSize(totalSize);
+        }
+        
+        // Wczytywanie pliku z serwera
+        async function loadFileFromServer(fileName) {
+            try {
+                // Sprawdź niezapisane zmiany
+                if (hasUnsavedChanges) {
+                    if (!confirm('Masz niezapisane zmiany. Czy na pewno chcesz wczytać inny plik?')) {
+                        return;
+                    }
+                }
+                
+                const response = await fetch(`download.php?file=${encodeURIComponent(fileName)}`);
+                
+                if (!response.ok) {
+                    throw new Error('Błąd pobierania pliku');
+                }
+                
+                const arrayBuffer = await response.arrayBuffer();
+                
+                // Parsowanie danych z pliku Excel
+                const data = new Uint8Array(arrayBuffer);
+                const workbook = XLSX.read(data, {type: 'array'});
+                
+                // Pobranie pierwszego arkusza
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                
+                // Konwersja do formatu JSON
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+                
+                // Przetworzenie danych
+                processExcelData(jsonData, fileName);
+                
+            } catch (error) {
+                console.error('Błąd wczytywania pliku:', error);
+                alert('Wystąpił błąd podczas wczytywania pliku.');
+            }
+        }
+        
+        // Obsługa przełączania motywu
+        themeToggle.addEventListener('click', () => {
+            currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', currentTheme);
+            
+            // Zapisz preferencję motywu w localStorage
+            localStorage.setItem('theme', currentTheme);
+            
+            // Aktualizacja ikony przycisku
+            const icon = themeToggle.querySelector('i');
+            icon.className = currentTheme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
+            
+            // Aktualizacja tekstu aria-label
+            themeToggle.setAttribute('aria-label', currentTheme === 'light' ? 'Włącz motyw ciemny' : 'Włącz motyw jasny');
+        });
+        
+        // Obsługa wyboru pliku z komputera
+        fileInput.addEventListener('change', handleFileSelect);
+        
+        // Obsługa przycisku wgrywania na serwer
+        uploadBtn.addEventListener('click', uploadFile);
+        
+        // Obsługa przycisku zapisu na serwerze
+        saveBtn.addEventListener('click', saveToServer);
+        
+        // Obsługa przycisku pobierania na dysk
+        downloadBtn.addEventListener('click', downloadToComputer);
+        
+        // Obsługa przycisków masowych
+        hidePolishBtn.addEventListener('click', () => toggleAllWords('polish', true));
+        showPolishBtn.addEventListener('click', () => toggleAllWords('polish', false));
+        hideEnglishBtn.addEventListener('click', () => toggleAllWords('english', true));
+        showEnglishBtn.addEventListener('click', () => toggleAllWords('english', false));
+        markAllKnownBtn.addEventListener('click', () => markAllWords(true));
+        markAllUnknownBtn.addEventListener('click', () => markAllWords(false));
+        
+        // Obsługa przycisków modalu ostrzeżenia
+        modalSaveBtn.addEventListener('click', () => {
+            isSaving = true;
+            saveToServer(() => {
+                // Po zapisie zamknij modal i pozwól na zamknięcie strony
+                closeWarningModal.classList.remove('active');
+                // Usuń nasłuchiwanie zdarzenia beforeunload
+                window.removeEventListener('beforeunload', handleBeforeUnload);
+            });
+        });
+        
+        modalCancelBtn.addEventListener('click', () => {
+            closeWarningModal.classList.remove('active');
+        });
+        
+        modalLeaveBtn.addEventListener('click', () => {
+            closeWarningModal.classList.remove('active');
+            // Usuń nasłuchiwanie zdarzenia beforeunload
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        });
+        
+        // Obsługa modalu zmiany nazwy
+        renameCancelBtn.addEventListener('click', () => {
+            renameModal.classList.remove('active');
+        });
+        
+        renameConfirmBtn.addEventListener('click', () => {
+            const oldName = renameModal.dataset.oldName;
+            const newName = renameInput.value.trim();
+            renameFile(oldName, newName);
+        });
+        
+        // Obsługa wyszukiwania i sortowania
+        if (fileSearch) {
+            fileSearch.addEventListener('input', () => {
+                loadFilesFromServer();
+            });
+        }
+        
+        if (fileSort) {
+            fileSort.addEventListener('change', () => {
+                loadFilesFromServer();
+            });
+        }
+        
+        if (refreshFilesBtn) {
+            refreshFilesBtn.addEventListener('click', () => {
+                loadFilesFromServer();
+            });
+        }
+        
+        // Funkcja obsługująca wybór pliku z komputera
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            // Sprawdzenie typu pliku
+            if (!file.name.match(/\.(xlsx|xls)$/)) {
+                alert('Proszę wybrać plik Excel (.xlsx lub .xls)');
+                return;
+            }
+            
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    // Parsowanie danych z pliku Excel
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    
+                    // Pobranie pierwszego arkusza
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    
+                    // Konwersja do formatu JSON
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, {header: 1});
+                    
+                    // Przetworzenie danych
+                    processExcelData(jsonData, file.name);
+                } catch (error) {
+                    console.error('Błąd przetwarzania pliku:', error);
+                    alert('Wystąpił błąd podczas przetwarzania pliku. Sprawdź, czy format jest prawidłowy.');
+                }
+            };
+            
+            reader.readAsArrayBuffer(file);
+        }
+        
+        // Funkcja wgrywania pliku na serwer
+        async function uploadFile() {
+            const file = fileInput.files[0];
+            if (!file) {
+                alert('Wybierz plik do wgrania');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                uploadBtn.disabled = true;
+                uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Wgrywanie...';
+                
+                const response = await fetch('upload.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('Plik został wgrany na serwer');
+                    fileInput.value = ''; // Wyczyść input
+                    loadFilesFromServer(); // Odśwież listę plików
+                } else {
+                    alert('Błąd podczas wgrywania pliku: ' + result.error);
+                }
+            } catch (error) {
+                console.error('Błąd:', error);
+                alert('Wystąpił błąd połączenia z serwerem');
+            } finally {
+                uploadBtn.disabled = false;
+                uploadBtn.innerHTML = '<i class="fas fa-upload"></i> Wgraj na serwer';
+            }
+        }
+        
+        // Funkcja przetwarzająca dane z Excela
+        function processExcelData(data, fileName) {
+            // Sprawdzenie, czy plik ma odpowiednią strukturę
+            if (data.length < 1) {
+                alert('Plik Excel jest pusty.');
+                return;
+            }
+            
+            // Pobranie nagłówków (pierwszy wiersz)
+            const headers = data[0].map(h => h ? String(h).trim().toLowerCase() : '');
+            
+            // Sprawdzenie podstawowych nagłówków
+            if (!headers.includes('j.polski') || !headers.includes('j.angielski')) {
+                alert('Nieprawidłowy format pliku Excel. Plik musi zawierać kolumny "J.polski" i "J.angielski".');
+                return;
+            }
+            
+            // Określenie indeksów kolumn
+            const polishIndex = headers.indexOf('j.polski');
+            const englishIndex = headers.indexOf('j.angielski');
+            const knownIndex = headers.includes('umie / nie umie') ? headers.indexOf('umie / nie umie') : 
+                              headers.includes('umie') ? headers.indexOf('umie') : -1;
+            
+            // Przetworzenie wierszy z danymi
+            wordsData = [];
+            for (let i = 1; i < data.length; i++) {
+                const row = data[i];
+                if (row && row.length >= 2 && row[polishIndex] && row[englishIndex]) {
+                    const polishWord = String(row[polishIndex]).trim();
+                    const englishWord = String(row[englishIndex]).trim();
+                    
+                    // Określenie czy słówko jest oznaczone jako znane
+                    let isKnown = false;
+                    if (knownIndex !== -1 && row[knownIndex]) {
+                        const knownStatus = String(row[knownIndex]).trim().toLowerCase();
+                        isKnown = knownStatus === 'umie' || knownStatus === 'tak';
+                    }
+                    
+                    wordsData.push({
+                        polish: polishWord,
+                        english: englishWord,
+                        known: isKnown,
+                        polishHidden: false,
+                        englishHidden: false
+                    });
+                }
+            }
+            
+            if (wordsData.length === 0) {
+                alert('Nie znaleziono danych słów w pliku Excel.');
+                return;
+            }
+            
+            // Zapisz oryginalne dane do porównania
+            originalWordsData = JSON.parse(JSON.stringify(wordsData));
+            hasUnsavedChanges = false;
+            unsavedWarning.style.display = 'none';
+            currentFileName = fileName;
+            
+            // Wyświetlenie danych w tabeli
+            displayWordsTable();
+            // Aktualizacja statystyk
+            updateStats();
+            // Pokazanie przycisków
+            saveBtn.style.display = 'inline-flex';
+            downloadBtn.style.display = 'inline-flex';
+            // Pokazanie statystyk
+            statsContainer.style.display = 'flex';
+            // Odświeżenie listy plików (aby zaznaczyć aktywny)
+            loadFilesFromServer();
+            
+            // Dodaj nasłuchiwanie zdarzenia beforeunload
+            window.addEventListener('beforeunload', handleBeforeUnload);
+        }
+        
+        // Funkcja wyświetlająca tabelę ze słówkami
+        function displayWordsTable() {
+            if (wordsData.length === 0) {
+                tableWrapper.innerHTML = emptyState.outerHTML;
+                saveBtn.style.display = 'none';
+                downloadBtn.style.display = 'none';
+                unsavedWarning.style.display = 'none';
+                statsContainer.style.display = 'none';
+                return;
+            }
+            
+            // Generowanie HTML tabeli
+            let tableHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Język polski</th>
+                            <th>Język angielski</th>
+                            <th>Umie</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            // Dodanie wierszy z danymi
+            wordsData.forEach((word, index) => {
+                const polishClass = word.polishHidden ? 'hidden' : '';
+                const englishClass = word.englishHidden ? 'hidden' : '';
+                const knownClass = word.known ? 'known' : '';
+                
+                tableHTML += `
+                    <tr>
+                        <td class="row-number">${index + 1}</td>
+                        <td class="${polishClass}">
+                            <div class="word-cell">
+                                <span class="word-text">${word.polish}</span>
+                                <div class="word-controls">
+                                    <button class="word-btn toggle-polish" data-index="${index}" title="${word.polishHidden ? 'Pokaż słówko' : 'Ukryj słówko'}">
+                                        <i class="fas ${word.polishHidden ? 'fa-eye' : 'fa-eye-slash'}"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="${englishClass}">
+                            <div class="word-cell">
+                                <span class="word-text">${word.english}</span>
+                                <div class="word-controls">
+                                    <button class="word-btn toggle-english" data-index="${index}" title="${word.englishHidden ? 'Pokaż słówko' : 'Ukryj słówko'}">
+                                        <i class="fas ${word.englishHidden ? 'fa-eye' : 'fa-eye-slash'}"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="known-cell">
+                            <button class="known-btn ${knownClass}" data-index="${index}" title="${word.known ? 'Oznacz jako nieznane' : 'Oznacz jako znane'}">
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            tableHTML += `
+                    </tbody>
+                </table>
+            `;
+            
+            tableWrapper.innerHTML = tableHTML;
+            
+            // Dodanie obsługi zdarzeń dla przycisków ukrywania/odsłaniania pojedynczych słówek
+            document.querySelectorAll('.toggle-polish').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(e.target.closest('button').getAttribute('data-index'));
+                    toggleWord(index, 'polish');
+                });
+            });
+            
+            document.querySelectorAll('.toggle-english').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(e.target.closest('button').getAttribute('data-index'));
+                    toggleWord(index, 'english');
+                });
+            });
+            
+            // Dodanie obsługi zdarzeń dla przycisków "Umie/Nie umie"
+            document.querySelectorAll('.known-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const index = parseInt(e.target.closest('button').getAttribute('data-index'));
+                    toggleKnownStatus(index);
+                });
+            });
+        }
+        
+        // Funkcja przełączająca widoczność pojedynczego słówka
+        function toggleWord(index, language) {
+            if (index < 0 || index >= wordsData.length) return;
+            
+            // Przełączenie stanu ukrycia
+            if (language === 'polish') {
+                wordsData[index].polishHidden = !wordsData[index].polishHidden;
+            } else {
+                wordsData[index].englishHidden = !wordsData[index].englishHidden;
+            }
+            
+            // Ponowne wyświetlenie tabeli z zaktualizowanymi danymi
+            displayWordsTable();
+        }
+        
+        // Funkcja przełączająca status "Umie/Nie umie" dla pojedynczego słówka
+        function toggleKnownStatus(index) {
+            if (index < 0 || index >= wordsData.length) return;
+            
+            // Przełączenie stanu
+            wordsData[index].known = !wordsData[index].known;
+            
+            // Sprawdź, czy są niezapisane zmiany
+            checkForUnsavedChanges();
+            
+            // Aktualizacja wyświetlania
+            const knownBtn = document.querySelector(`.known-btn[data-index="${index}"]`);
+            if (knownBtn) {
+                knownBtn.classList.toggle('known');
+                knownBtn.setAttribute('title', wordsData[index].known ? 'Oznacz jako nieznane' : 'Oznacz jako znane');
+            }
+            
+            // Aktualizacja statystyk
+            updateStats();
+        }
+        
+        // Funkcja masowego ukrywania/odsłaniania słówek
+        function toggleAllWords(language, hide) {
+            if (wordsData.length === 0) return;
+            
+            // Aktualizacja stanu wszystkich słówek
+            wordsData.forEach(word => {
+                if (language === 'polish') {
+                    word.polishHidden = hide;
+                } else if (language === 'english') {
+                    word.englishHidden = hide;
+                }
+            });
+            
+            // Ponowne wyświetlenie tabeli
+            displayWordsTable();
+        }
+        
+        // Funkcja masowego oznaczania słówek jako znanych/nieznanych
+        function markAllWords(known) {
+            if (wordsData.length === 0) return;
+            
+            // Aktualizacja stanu wszystkich słówek
+            wordsData.forEach(word => {
+                word.known = known;
+            });
+            
+            // Sprawdź, czy są niezapisane zmiany
+            checkForUnsavedChanges();
+            
+            // Ponowne wyświetlenie tabeli i statystyk
+            displayWordsTable();
+            updateStats();
+        }
+        
+        // Funkcja aktualizująca statystyki
+        function updateStats() {
+            if (wordsData.length === 0) return;
+            
+            const total = wordsData.length;
+            const known = wordsData.filter(word => word.known).length;
+            const unknown = total - known;
+            const progressPercent = total > 0 ? Math.round((known / total) * 100) : 0;
+            
+            totalWordsEl.textContent = total;
+            knownWordsEl.textContent = known;
+            unknownWordsEl.textContent = unknown;
+            progressPercentEl.textContent = `${progressPercent}%`;
+        }
+        
+        // Funkcja sprawdzająca niezapisane zmiany
+        function checkForUnsavedChanges() {
+            if (wordsData.length === 0 || originalWordsData.length === 0) return false;
+            
+            // Porównanie oryginalnych danych z aktualnymi
+            const hasChanges = wordsData.some((word, index) => {
+                if (index >= originalWordsData.length) return true;
+                return word.known !== originalWordsData[index].known;
+            });
+            
+            hasUnsavedChanges = hasChanges;
+            
+            // Pokazanie/ukrycie ostrzeżenia
+            if (hasUnsavedChanges) {
+                unsavedWarning.style.display = 'block';
+            } else {
+                unsavedWarning.style.display = 'none';
+            }
+            
+            return hasUnsavedChanges;
+        }
+        
+        // Funkcja zapisu na serwer
+        async function saveToServer(callback) {
+            if (wordsData.length === 0) {
+                alert('Brak danych do zapisu.');
+                if (callback) callback();
+                return;
+            }
+            
+            try {
+                // Przygotowanie danych do zapisu
+                const exportData = [
+                    ['J.polski', 'J.angielski', 'Umie / Nie umie']
+                ];
+                
+                wordsData.forEach(word => {
+                    exportData.push([
+                        word.polish,
+                        word.english,
+                        word.known ? 'Umie' : 'Nie umie'
+                    ]);
+                });
+                
+                // Tworzenie arkusza
+                const worksheet = XLSX.utils.aoa_to_sheet(exportData);
+                
+                // Ustawienie szerokości kolumn
+                const colWidths = [
+                    { wch: 20 }, // J.polski
+                    { wch: 20 }, // J.angielski
+                    { wch: 15 }  // Umie / Nie umie
+                ];
+                worksheet['!cols'] = colWidths;
+                
+                // Tworzenie skoroszytu
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, 'Słówka');
+                
+                // Konwersja do formatu binarnego
+                const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+                
+                // Tworzenie pliku do wysłania
+                const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                
+                // Nazwa pliku (jeśli to nowy plik, użyj obecnej nazwy lub utwórz nową)
+                let filename = currentFileName;
+                if (!filename) {
+                    const date = new Date();
+                    const dateStr = `${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+                    filename = `slówka_${dateStr}.xlsx`;
+                }
+                
+                const formData = new FormData();
+                formData.append('file', blob, filename);
+                
+                const response = await fetch('upload.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Zaktualizuj oryginalne dane (zmiany zostały zapisane)
+                    originalWordsData = JSON.parse(JSON.stringify(wordsData));
+                    hasUnsavedChanges = false;
+                    unsavedWarning.style.display = 'none';
+                    
+                    alert(`Plik "${filename}" został zapisany na serwerze.`);
+                    
+                    // Odśwież listę plików
+                    loadFilesFromServer();
+                    
+                    if (callback) callback();
+                } else {
+                    alert('Błąd podczas zapisu na serwer: ' + result.error);
+                    if (callback) callback();
+                }
+                
+            } catch (error) {
+                console.error('Błąd zapisu:', error);
+                alert('Wystąpił błąd podczas zapisu na serwer.');
+                if (callback) callback();
+            }
+        }
+        
+        // Funkcja pobierania pliku na dysk komputera
+        function downloadToComputer() {
+            if (wordsData.length === 0) {
+                alert('Brak danych do eksportu.');
+                return;
+            }
+            
+            try {
+                // Przygotowanie danych do eksportu
+                const exportData = [
+                    ['J.polski', 'J.angielski', 'Umie / Nie umie']
+                ];
+                
+                wordsData.forEach(word => {
+                    exportData.push([
+                        word.polish,
+                        word.english,
+                        word.known ? 'Umie' : 'Nie umie'
+                    ]);
+                });
+                
+                // Tworzenie arkusza
+                const worksheet = XLSX.utils.aoa_to_sheet(exportData);
+                
+                // Ustawienie szerokości kolumn
+                const colWidths = [
+                    { wch: 20 }, // J.polski
+                    { wch: 20 }, // J.angielski
+                    { wch: 15 }  // Umie / Nie umie
+                ];
+                worksheet['!cols'] = colWidths;
+                
+                // Tworzenie skoroszytu
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, 'Słówka');
+                
+                // Generowanie nazwy pliku z datą
+                const date = new Date();
+                const dateStr = `${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+                const filename = currentFileName || `slówka_${dateStr}.xlsx`;
+                
+                // Zapis pliku na dysk
+                XLSX.writeFile(workbook, filename);
+                
+            } catch (error) {
+                console.error('Błąd eksportu do Excel:', error);
+                alert('Wystąpił błąd podczas eksportu danych.');
+            }
+        }
+        
+        // Funkcja obsługująca zdarzenie beforeunload (przed zamknięciem strony)
+        function handleBeforeUnload(event) {
+            // Sprawdź, czy są niezapisane zmiany
+            if (checkForUnsavedChanges() && !isSaving) {
+                // Pokaż modal zamiast standardowego alertu przeglądarki
+                event.preventDefault();
+                closeWarningModal.classList.add('active');
+                
+                // Dla przeglądarek, które wymagają ustawienia returnValue
+                event.returnValue = '';
+                return '';
+            }
+        }
+        
+        // Inicjalizacja motywu
+        function initTheme() {
+            // Sprawdzenie zapisanej preferencji
+            const savedTheme = localStorage.getItem('theme');
+            
+            if (savedTheme) {
+                currentTheme = savedTheme;
+            } else {
+                // Sprawdzenie preferencji użytkownika
+                const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
+                currentTheme = prefersDarkScheme.matches ? 'dark' : 'light';
+            }
+            
+            document.documentElement.setAttribute('data-theme', currentTheme);
+            const icon = themeToggle.querySelector('i');
+            icon.className = currentTheme === 'light' ? 'fas fa-moon' : 'fas fa-sun';
+            themeToggle.setAttribute('aria-label', currentTheme === 'light' ? 'Włącz motyw ciemny' : 'Włącz motyw jasny');
+        }
+        
+        // Inicjalizacja strony
+        function init() {
+            initTheme();
+            loadFilesFromServer();
+            
+            // Okresowe odświeżanie listy plików (co 30 sekund)
+            setInterval(loadFilesFromServer, 30000);
+        }
+        
+        init();
+    </script>
+</body>
+</html>
